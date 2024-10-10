@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teachable Machine Model</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f7f7;
+        }
+
+        #webcam-container {
+            margin-bottom: 20px;
+        }
+
+        /* Estilo para el título */
+        #title {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, rgba(255,135,135,1) 0%, rgba(255,215,135,1) 100%);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            visibility: hidden; /* Título oculto inicialmente */
+        }
+
+        /* Estilo para el botón */
+        button {
+            background-color: #007BFF;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Estilo para el cuadrado donde se mostrará la letra con probabilidad >= 0.95 */
+        .prediction-box {
+            border: 2px solid #000;
+            padding: 20px;
+            margin-top: 20px;
+            display: inline-block;
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+    <!-- Título estilizado que aparecerá después de hacer clic en "Start" -->
+    <div id="title">Tengo algo que decirte...</div>
+
+    <button id="start-button" type="button" onclick="startProcess()">Start</button>
+
+    <div id="webcam-container"></div>
+    <!-- Contenedor donde se mostrarán las letras con probabilidad >= 0.95 -->
+    <div id="high-predictions"></div>
+
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/47ZiXLsW1/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        // Iniciar proceso y mostrar título
+        function startProcess() {
+            // Mostrar título
+            document.getElementById("title").style.visibility = "visible"; 
+
+            // Ocultar el botón después de ser presionado
+            document.getElementById("start-button").style.display = "none";
+
+            // Iniciar cámara y modelo
+            init(); 
+        }
+
+        // Cargar el modelo y configurar la cámara
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // Cargar el modelo de Teachable Machine
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Configurar la cámara
+            const flip = true;
+            webcam = new tmImage.Webcam(400, 400, flip); // tamaño de la cámara
+            await webcam.setup(); // solicitar acceso a la cámara
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function loop() {
+            webcam.update(); // actualizar el frame de la cámara
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // Función para mostrar solo las predicciones con probabilidad >= 0.95
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            const highPredictionsContainer = document.getElementById("high-predictions");
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const probability = prediction[i].probability;
+                const className = prediction[i].className;
+
+                // Si la predicción es mayor o igual a 0.95, se añade un cuadro con la letra
+                if (probability >= 0.95) {
+                    // Verificar si la letra ya está en la pantalla
+                    const existingPrediction = document.getElementById(`prediction-${className}`);
+                    if (!existingPrediction) {
+                        const predictionBox = document.createElement("div");
+                        predictionBox.className = "prediction-box";
+                        predictionBox.id = `prediction-${className}`; // Asignar un ID único basado en la clase
+                        predictionBox.textContent = className; // Mostrar solo la letra (nombre de la clase)
+                        highPredictionsContainer.appendChild(predictionBox);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
